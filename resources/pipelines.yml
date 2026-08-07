@@ -1,0 +1,21 @@
+resources:
+  pipelines:
+
+    # The pipeline: streaming order events (Auto Loader -> apply_changes
+    # SCD1) and CDC-driven dimensions (apply_changes SCD2), producing a
+    # star-schema gold layer. Depends on setup_job having already created
+    # the catalog/schema/volume, and on the two generator jobs having
+    # landed at least one batch of events for there to be anything to
+    # process on the first run.
+    order_pipeline:
+      name: "[${bundle.target}] order_lakehouse - pipeline"
+      catalog: ${var.catalog}
+      target: ${var.schema}
+      serverless: true
+      continuous: false
+      photon: true
+      libraries:
+        - notebook:
+            path: ../src/pipeline/order_pipeline_dlt.py
+      configuration:
+        volume_path: ${var.volume_path}

@@ -1,0 +1,54 @@
+resources:
+  jobs:
+
+    # One-time (or re-runnable) setup: creates catalog/schema/volume. Run
+    # this once before anything else.
+    setup_job:
+      name: "[${bundle.target}] order_lakehouse - 00 setup"
+      tasks:
+        - task_key: create_catalog_schema_volume
+          notebook_task:
+            notebook_path: ../src/00_setup/create_catalog_schema.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+    # Synthetic order-event generator, standing in for a real OMS. Writes
+    # into <volume>/order_events/. Run manually, or on the schedule below,
+    # to simulate a live order stream for bronze_order_events to pick up.
+    generate_order_events_job:
+      name: "[${bundle.target}] order_lakehouse - generate order events"
+      trigger:
+        pause_status: PAUSED # flip to UNPAUSED once you're ready to let it run on a schedule
+        periodic:
+          interval: 10
+          unit: MINUTES
+      tasks:
+        - task_key: generate_order_events
+          notebook_task:
+            notebook_path: ../src/data_generator/generate_synthetic_orders.py
+            base_parameters:
+              volume_path: ${var.volume_path}
+              num_events: "200"
+
+    # Synthetic dimension CDC event generator, standing in for a real CDC
+    # connector (Debezium, a native DB CDC feed) in front of the
+    # customer-profile and product-catalog source systems. Writes into
+    # <volume>/customer_changes/ and <volume>/product_changes/. First run
+    # emits a full initial load; every run after that emits a handful of
+    # UPDATE/DELETE events -- re-running this (or unpausing the schedule)
+    # is what demonstrates dlt.apply_changes actually accumulating SCD2
+    # history.
+    generate_dimension_cdc_events_job:
+      name: "[${bundle.target}] order_lakehouse - generate dimension CDC events"
+      trigger:
+        pause_status: PAUSED # flip to UNPAUSED once you're ready to let it run on a schedule
+        periodic:
+          interval: 20
+          unit: MINUTES
+      tasks:
+        - task_key: generate_dimension_cdc_events
+          notebook_task:
+            notebook_path: ../src/data_generator/generate_dimension_cdc_events.py
+            base_parameters:
+              volume_path: ${var.volume_path}

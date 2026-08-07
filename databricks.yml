@@ -1,0 +1,33 @@
+bundle:
+  name: order-lakehouse
+
+# Databricks Free Edition is serverless-only, single workspace, single
+# metastore. No cluster specs appear anywhere in this bundle -- Lakeflow
+# Declarative Pipelines run serverless by default, which is required (and
+# the only option) on Free Edition.
+variables:
+  catalog:
+    description: Unity Catalog catalog to use for all objects
+    default: workspace
+  schema:
+    description: Schema (database) the pipeline's tables and the landing volume live in
+    default: order_lakehouse
+  volume_path:
+    description: Unity Catalog volume path used as the landing zone for synthetic order/CDC events
+    default: /Volumes/${var.catalog}/${var.schema}/raw_events
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      # Free Edition has exactly one workspace per account, so this just
+      # needs to point at that workspace URL, e.g.
+      # https://<your-workspace>.cloud.databricks.com
+      host: https://<your-free-edition-workspace-host>
+    variables:
+      catalog: workspace
+      schema: order_lakehouse_dev
